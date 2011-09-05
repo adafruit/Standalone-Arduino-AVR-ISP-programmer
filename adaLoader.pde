@@ -60,12 +60,14 @@ byte pageBuffer[128];		       /* One page of flash */
 #define CLOCK 9 // self-generate 8mhz clock - handy!
 
 #define BUTTON A1
-
+#define PIEZOPIN 2
 
 void setup () {
   Serial.begin(9600);			/* Initialize serial for status msgs */
   Serial.println("\nAdaBootLoader Bootstrap programmer (originally OptiLoader Bill Westfield (WestfW))");
 
+  pinMode(PIEZOPIN, OUTPUT);
+  pinMode(PIEZOPIN2, OUTPUT);
 
   pinMode(LED_PROGMODE, OUTPUT);
   pulse(LED_PROGMODE,2);
@@ -103,10 +105,14 @@ void loop (void) {
   if (! (targetimage = findImage(signature)))	// look for an image
     error("Image fail");
   
-  if (! programmingFuses(targetimage))	// get fuses ready to program
-    error("Programming Fuses fail");
-
   eraseChip();
+
+  if (! programFuses(targetimage->image_progfuses))	// get fuses ready to program
+    error("Programming Fuses fail");
+  
+  if (! verifyFuses(targetimage->image_progfuses, targetimage->fusemask) ) {
+    error("Failed to verify fuses");
+  } 
 
   byte *hextext = targetimage->image_hexcode;  
   uint16_t pageaddr = 0;
@@ -129,21 +135,37 @@ void loop (void) {
      pageaddr += pagesize;
   }
   
-  //normalFuses(targetimage);	// reset fuses to normal mode 
+  // Set fuses to 'final' state
+  if (! programFuses(targetimage->image_normfuses))
+    error("Programming Fuses fail");
+    
   end_pmode();
   start_pmode();
-  Serial.println("\nVerifing chip flash");
+  Serial.println("\nVerifing flash...");
   if (! verifyImage(targetimage->image_hexcode) ) {
     error("Failed to verify chip");
   } else {
-    Serial.println("Chip flash verified correctly!");
+    Serial.println("\tFlash verified correctly!");
   }
 
+  if (! verifyFuses(targetimage->image_normfuses, targetimage->fusemask) ) {
+    error("Failed to verify fuses");
+  } else {
+    Serial.println("Fuses verified correctly!");
+  }
   target_poweroff();			/* turn power off */
+  tone(PIEZOPIN, 4000, 200);
 }
 
 
 
+void error(char *string) { 
+  Serial.println(string); 
+  digitalWrite(LED_ERR, HIGH);  
+  while(1) {
+    tone(PIEZOPIN, 4000, 500);
+  }
+}
 
 void start_pmode () {
   pinMode(13, INPUT); // restore to default
@@ -193,9 +215,9 @@ boolean target_poweron ()
   digitalWrite(RESET, LOW);  // reset it right away.
   pinMode(RESET, OUTPUT);
   delay(200);
-  fp("Starting Program Mode");
+  Serial.print("Starting Program Mode");
   start_pmode();
-  fp(" [OK]\n");
+  Serial.println(" [OK]");
   return true;
 }
 

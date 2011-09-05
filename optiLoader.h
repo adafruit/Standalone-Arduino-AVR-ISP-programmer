@@ -21,6 +21,7 @@ typedef struct image {
     uint16_t image_chipsig;	       /* Low two bytes of signature */
     byte image_progfuses[5];	       /* fuses to set during programming */
     byte image_normfuses[5];	       /* fuses to set after programming */
+    byte fusemask[4];
     uint16_t chipsize;
     byte image_pagesize;	       /* page size for flash programming */
     byte image_hexcode[5000];	       /* intel hex format image (text) */
@@ -33,9 +34,9 @@ typedef struct alias {
 } alias_t;
 
 // Useful message printing definitions
-#define fp(string) flashprint(PSTR(string));
+
 #define debug(string) // flashprint(PSTR(string));
-#define error(string) { flashprint(PSTR(string)); digitalWrite(LED_ERR, HIGH);  while(1); }
+
 
 void pulse (int pin, int times);
 void flashprint (const char p[]);
@@ -46,13 +47,14 @@ image_t *findImage (uint16_t signature);
 
 
 uint16_t readSignature (void);
-boolean programmingFuses (image_t *target);
-boolean normalFuses (image_t *target);
+boolean programFuses (const byte *fuses);
 void eraseChip(void);
 boolean verifyImage (byte *hextext);
 void busyWait(void);
 boolean flashPage (byte *pagebuff, uint16_t pageaddr, uint8_t pagesize);
 byte hexton (byte h);
 byte * readImagePage (byte *hextext, uint16_t pageaddr, uint8_t pagesize, byte *page);
+boolean verifyFuses (const byte *fuses, const byte *fusemask);
+void error(char *string);
 
 #endif

@@ -21,7 +21,7 @@ uint16_t readSignature (void)
   SPI.setClockDivider(CLOCKSPEED_FUSES); 
     
   uint16_t target_type = 0;
-  fp("\nReading signature:");
+  Serial.print("\nReading signature:");
   
   target_type = spi_transaction(0x30, 0x00, 0x01, 0x00);
   target_type <<= 8;
@@ -30,7 +30,7 @@ uint16_t readSignature (void)
   Serial.println(target_type, HEX);
   if (target_type == 0 || target_type == 0xFFFF) {
     if (target_type == 0) {
-      fp("  (no target attached?)\n");
+      Serial.println("  (no target attached?)");
     }
   }
   return target_type;
@@ -46,111 +46,108 @@ uint16_t readSignature (void)
 image_t *findImage (uint16_t signature)
 {
   image_t *ip;
-  fp("Searching for image...\n");
+  Serial.println("Searching for image...");
 
   for (byte i=0; i < NUMIMAGES; i++) {
     ip = images[i];
 
     if (ip && (pgm_read_word(&ip->image_chipsig) == signature)) {
-	fp("  Found \"");
+	Serial.print("  Found \"");
 	flashprint(&ip->image_name[0]);
-	fp("\" for ");
+	Serial.print("\" for ");
 	flashprint(&ip->image_chipname[0]);
-	fp("\n");
+	Serial.println();
 
 	return ip;
     }
   }
-  fp(" Not Found\n");
+  Serial.println(" Not Found");
   return 0;
 }
 
 /*
  * programmingFuses
- * reprogram the fuses to the state we want during chip programming.
- * This is not necessarily the same as the
- * 'final' fuses due to changes in clock speed, lock byte, etc
+ * Program the fuse/lock bits
  */
-boolean programmingFuses (image_t *target)
+boolean programFuses (const byte *fuses)
 {
   SPI.setClockDivider(CLOCKSPEED_FUSES); 
     
   byte f;
-  fp("\nSetting fuses for programming");
+  Serial.print("\nSetting fuses");
 
-  f = pgm_read_byte(target->image_progfuses[FUSE_PROT]);
+  f = pgm_read_byte(&fuses[FUSE_PROT]);
   if (f) {
-    fp("\n  Lock: ");
+    Serial.print("\n  Set Lock Fuse to: ");
     Serial.print(f, HEX);
-    fp(" ");
+    Serial.print(" -> ");
     Serial.print(spi_transaction(0xAC, 0xE0, 0x00, f), HEX);
   }
-  f = pgm_read_byte(target->image_progfuses[FUSE_LOW]);
+  f = pgm_read_byte(&fuses[FUSE_LOW]);
   if (f) {
-    fp("  Low: ");
+    Serial.print("  Set Low Fuse to: ");
     Serial.print(f, HEX);
-    fp(" ");
+    Serial.print(" -> ");
     Serial.print(spi_transaction(0xAC, 0xA0, 0x00, f), HEX);
   }
-  f = pgm_read_byte(target->image_progfuses[FUSE_HIGH]);
+  f = pgm_read_byte(&fuses[FUSE_HIGH]);
   if (f) {
-    fp("  High: ");
+    Serial.print("  Set High Fuse to: ");
     Serial.print(f, HEX);
-    fp(" ");
+    Serial.print(" -> ");
     Serial.print(spi_transaction(0xAC, 0xA8, 0x00, f), HEX);
   }
-  f = pgm_read_byte(target->image_progfuses[FUSE_EXT]);
+  f = pgm_read_byte(&fuses[FUSE_EXT]);
   if (f) {
-    fp("  Ext: ");
+    Serial.print("  Set Ext Fuse to: ");
     Serial.print(f, HEX);
-    fp(" ");
+    Serial.print(" -> ");
     Serial.print(spi_transaction(0xAC, 0xA4, 0x00, f), HEX);
   }
   Serial.println();
   return true;			/* */
 }
 
-
 /*
- * normalFuses
- * reprogram the fuses to the state we want after the chip has
- * been programmed - this is not necessarily the same as the
- * 'programming' fuses due to changes in clock speed, lock byte, etc
+ * verifyFuses
+ * Verifies a fuse set
  */
-boolean normalFuses (image_t *target)
+boolean verifyFuses (const byte *fuses, const byte *fusemask)
 {
   SPI.setClockDivider(CLOCKSPEED_FUSES); 
-
   byte f;
-  fp("\nRestoring normal fuses");
-
-  f = pgm_read_byte(target->image_normfuses[FUSE_PROT]);
+  Serial.println("Verifying fuses...");
+  f = pgm_read_byte(&fuses[FUSE_PROT]);
   if (f) {
-    fp("\n  Lock: ");
-    Serial.print(f, HEX);
-    fp(" ");
-    Serial.print(spi_transaction(0xAC, 0xE0, 0x00, f), HEX);
+    uint8_t readfuse = spi_transaction(0x58, 0x00, 0x00, 0x00);  // lock fuse
+    readfuse &= pgm_read_byte(&fusemask[FUSE_PROT]);
+    Serial.print("\tLock Fuse: "); Serial.print(f, HEX);  Serial.print(" is "); Serial.print(readfuse, HEX);
+    if (readfuse != f) 
+      return false;
   }
-  f = pgm_read_byte(target->image_normfuses[FUSE_LOW]);
+  f = pgm_read_byte(&fuses[FUSE_LOW]);
   if (f) {
-    fp("  Low: ");
-    Serial.print(f, HEX);
-    fp(" ");
-    Serial.print(spi_transaction(0xAC, 0xA0, 0x00, f), HEX);
+    uint8_t readfuse = spi_transaction(0x50, 0x00, 0x00, 0x00);  // low fuse
+    Serial.print("\tLow Fuse: 0x");  Serial.print(f, HEX); Serial.print(" is 0x"); Serial.print(readfuse, HEX);
+    readfuse &= pgm_read_byte(&fusemask[FUSE_LOW]);
+    if (readfuse != f) 
+      return false;
   }
-  f = pgm_read_byte(target->image_normfuses[FUSE_HIGH]);
+  f = pgm_read_byte(&fuses[FUSE_HIGH]);
   if (f) {
-    fp("  High: ");
-    Serial.print(f, HEX);
-    fp(" ");
-    Serial.print(spi_transaction(0xAC, 0xA8, 0x00, f), HEX);
+    uint8_t readfuse = spi_transaction(0x58, 0x08, 0x00, 0x00);  // high fuse
+    readfuse &= pgm_read_byte(&fusemask[FUSE_HIGH]);
+    Serial.print("\tHigh Fuse: 0x");  Serial.print(f, HEX); Serial.print(" is 0x");  Serial.print(readfuse, HEX);
+    if (readfuse != f) 
+      return false;
   }
-  f = pgm_read_byte(target->image_normfuses[FUSE_EXT]);
+  f = pgm_read_byte(&fuses[FUSE_EXT]);
   if (f) {
-    fp("  Ext: ");
-    Serial.print(f, HEX);
-    fp(" ");
-    Serial.print(spi_transaction(0xAC, 0xA4, 0x00, f), HEX);
+    uint8_t readfuse = spi_transaction(0x50, 0x08, 0x00, 0x00);  // ext fuse
+    readfuse &= pgm_read_byte(&fusemask[FUSE_EXT]);
+    Serial.print("\tExt Fuse: 0x"); Serial.print(f, HEX); Serial.print(" is 0x"); Serial.print(readfuse, HEX);
+    if (readfuse != f) 
+      return false;
   }
   Serial.println();
   return true;			/* */
@@ -260,7 +257,7 @@ byte * readImagePage (byte *hextext, uint16_t pageaddr, uint8_t pagesize, byte *
       break;
   }
 #if VERBOSE
-  fp("\n  Total bytes read: ");
+  Serial.print("\n  Total bytes read: ");
   Serial.println(page_idx, DEC);
 #endif
   return hextext;
