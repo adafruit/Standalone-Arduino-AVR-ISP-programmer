@@ -10,8 +10,11 @@
 #define FUSE_HIGH 2			/* High fuse */
 #define FUSE_EXT 3			/* Extended fuse */
 
+// You may want to tweak these based on whether your chip is
+// using an internal low-speed crystal
 #define CLOCKSPEED_FUSES   SPI_CLOCK_DIV128 
-#define CLOCKSPEED_FLASH   SPI_CLOCK_DIV128
+#define CLOCKSPEED_FLASH   SPI_CLOCK_DIV8
+
 #define LED_ERR 8
 #define LED_PROGMODE A0
 

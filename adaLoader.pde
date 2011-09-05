@@ -1,9 +1,12 @@
-// optiLoader.pde
+// Standalone AVR ISP programmer
+// August 2011 by Limor Fried / Ladyada / Adafruit
 // Jan 2011 by Bill Westfield ("WestfW")
 //
-// this sketch allows an Arduino to program Optiboot onto any other
-// Arduino-like device containing ATmega8, ATmega168, or ATmega328
-// microcontroller chips.
+// this sketch allows an Arduino to program a flash program
+// into any AVR if you can fit the HEX file into program memory
+// No computer is necessary. Two LEDs for status notification
+// Press button to program a new chip. Piezo beeper for error/success 
+// This is ideal for very fast mass-programming of chips!
 //
 // It is based on AVRISP
 //
@@ -12,34 +15,10 @@
 // 11: MOSI
 // 12: MISO
 // 13: SCK
-//  9: Power to external chip.
-//     This is a little questionable, since the power it is legal to draw
-//     from a PIC pin is pretty close to the power consumption of an AVR
-//     chip being programmed.  But it permits the target to be entirely
-//     powered down for safe reconnection of the programmer to additional
-//     targets, and it seems to work for most Arduinos.  If the target board
-//     contains additional circuitry and is expected to draw more than 40mA,
-//     connect the target power to a stronger source of +5V.
-
+//  9: 8 MHz clock output - connect this to the XTAL1 pin of the AVR
+//     if you want to program a chip that requires a crystal without
+//     soldering a crystal in
 // ----------------------------------------------------------------------
-
-// The following credits are from AVRISP.  It turns out that there isn't
-// a lot of AVRISP left in this sketch, but probably if AVRISP had never
-// existed,  this sketch would not have been written.
-//
-// October 2009 by David A. Mellis
-// - Added support for the read signature command
-// 
-// February 2009 by Randall Bohn
-// - Added support for writing to EEPROM (what took so long?)
-// Windows users should consider WinAVR's avrdude instead of the
-// avrdude included with Arduino software.
-//
-// January 2008 by Randall Bohn
-// - Thanks to Amplificar for helping me with the STK500 protocol
-// - The AVRISP/STK500 (mk I) protocol is used in the arduino bootloader
-// - The SPI functions herein were developed for the AVR910_ARD programmer 
-// - More information at http://code.google.com/p/mega-isp
 
 
 #include "optiLoader.h"
@@ -57,17 +36,16 @@ byte pageBuffer[128];		       /* One page of flash */
 #define MISO 12
 #define MOSI 11
 #define RESET 10
-#define CLOCK 9 // self-generate 8mhz clock - handy!
+#define CLOCK 9     // self-generate 8mhz clock - handy!
 
 #define BUTTON A1
-#define PIEZOPIN 2
+#define PIEZOPIN A3
 
 void setup () {
-  Serial.begin(9600);			/* Initialize serial for status msgs */
+  Serial.begin(57600);			/* Initialize serial for status msgs */
   Serial.println("\nAdaBootLoader Bootstrap programmer (originally OptiLoader Bill Westfield (WestfW))");
 
   pinMode(PIEZOPIN, OUTPUT);
-  pinMode(PIEZOPIN2, OUTPUT);
 
   pinMode(LED_PROGMODE, OUTPUT);
   pulse(LED_PROGMODE,2);
@@ -114,6 +92,9 @@ void loop (void) {
     error("Failed to verify fuses");
   } 
 
+  end_pmode();
+  start_pmode();
+
   byte *hextext = targetimage->image_hexcode;  
   uint16_t pageaddr = 0;
   uint8_t pagesize = pgm_read_byte(&targetimage->image_pagesize);
@@ -141,6 +122,7 @@ void loop (void) {
     
   end_pmode();
   start_pmode();
+  
   Serial.println("\nVerifing flash...");
   if (! verifyImage(targetimage->image_hexcode) ) {
     error("Failed to verify chip");
@@ -214,7 +196,7 @@ boolean target_poweron ()
   digitalWrite(LED_PROGMODE, HIGH);
   digitalWrite(RESET, LOW);  // reset it right away.
   pinMode(RESET, OUTPUT);
-  delay(200);
+  delay(100);
   Serial.print("Starting Program Mode");
   start_pmode();
   Serial.println(" [OK]");
@@ -225,7 +207,6 @@ boolean target_poweroff ()
 {
   end_pmode();
   digitalWrite(LED_PROGMODE, LOW);
-  delay(200);
   return true;
 }
 

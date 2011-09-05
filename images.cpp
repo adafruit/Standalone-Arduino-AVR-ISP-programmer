@@ -100,7 +100,7 @@ image_t PROGMEM image_328 = {
  * Table of defined images
  */
 image_t *images[] = {
-  &image_328, 0, 0, 0
+  &image_328,
 };
 
 uint8_t NUMIMAGES = sizeof(images)/sizeof(images[0]);
