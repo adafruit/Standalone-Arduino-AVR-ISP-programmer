@@ -311,6 +311,8 @@ boolean flashPage (byte *pagebuff, uint16_t pageaddr, uint8_t pagesize) {
 // Thankfully this does not have to be done by pages!
 // returns true if the image is the same as the hextext, returns false on any error
 boolean verifyImage (byte *hextext)  {
+  uint16_t address = 0;
+  
   SPI.setClockDivider(CLOCKSPEED_FLASH); 
 
   uint16_t len;
