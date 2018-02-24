@@ -9,15 +9,12 @@
 #ifndef _OPTILOADER_H
 #define _OPTILOADER_H
 
+#define VERBOSE 0       // Debugging output?
+
 #define FUSE_PROT 0			/* memory protection */
 #define FUSE_LOW 1			/* Low fuse */
 #define FUSE_HIGH 2			/* High fuse */
 #define FUSE_EXT 3			/* Extended fuse */
-
-// You may want to tweak these based on whether your chip is
-// using an internal low-speed crystal
-#define CLOCKSPEED_FUSES   SPI_CLOCK_DIV128 
-#define CLOCKSPEED_FLASH   SPI_CLOCK_DIV8
 
 #define LED_ERR 8
 #define LED_PROGMODE A0

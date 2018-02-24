@@ -82,9 +82,11 @@ void loop (void) {
     error("Signature fail");
   if (! (targetimage = findImage(signature)))	// look for an image
     error("Image fail");
-  
-  eraseChip();
 
+  Serial.println();
+  Serial.println("Erasing chip");
+  eraseChip();
+  
   if (! programFuses(targetimage->image_progfuses))	// get fuses ready to program
     error("Programming Fuses fail");
   
@@ -92,16 +94,19 @@ void loop (void) {
     error("Failed to verify fuses");
   } 
 
+  Serial.println("Fuses set & verified");
   end_pmode();
   start_pmode();
 
   byte *hextext = targetimage->image_hexcode;  
   uint16_t pageaddr = 0;
   uint8_t pagesize = pgm_read_byte(&targetimage->image_pagesize);
+  Serial.print("Page size: "); Serial.println(pagesize, DEC);
   uint16_t chipsize = pgm_read_word(&targetimage->chipsize);
-        
-  //Serial.println(chipsize, DEC);
+  Serial.print("Chip size: "); Serial.println(chipsize, DEC);
+  
   while (pageaddr < chipsize) {
+     Serial.print("Writing address $"); Serial.println(pageaddr, HEX);
      byte *hextextpos = readImagePage (hextext, pageaddr, pagesize, pageBuffer);
           
      boolean blankpage = true;
@@ -110,7 +115,7 @@ void loop (void) {
      }          
      if (! blankpage) {
        if (! flashPage(pageBuffer, pageaddr, pagesize))	
-	 error("Flash programming failed");
+	       error("Flash programming failed");
      }
      hextext = hextextpos;
      pageaddr += pagesize;
@@ -119,9 +124,12 @@ void loop (void) {
   // Set fuses to 'final' state
   if (! programFuses(targetimage->image_normfuses))
     error("Programming Fuses fail");
-    
+
+  delay(100);
   end_pmode();
+  delay(100);
   start_pmode();
+  delay(100);
   
   Serial.println("\nVerifing flash...");
   if (! verifyImage(targetimage->image_hexcode) ) {
@@ -173,14 +181,14 @@ void start_pmode () {
 }
 
 void end_pmode () {
-  SPCR = 0;				/* reset SPI */
-  digitalWrite(MISO, 0);		/* Make sure pullups are off too */
+  SPI.end();
+  digitalWrite(MISO, LOW);		/* Make sure pullups are off too */
   pinMode(MISO, INPUT);
-  digitalWrite(MOSI, 0);
+  digitalWrite(MOSI, LOW);
   pinMode(MOSI, INPUT);
-  digitalWrite(SCK, 0);
+  digitalWrite(SCK, LOW);
   pinMode(SCK, INPUT);
-  digitalWrite(RESET, 0);
+  digitalWrite(RESET, LOW);
   pinMode(RESET, INPUT);
   pmode = 0;
 }

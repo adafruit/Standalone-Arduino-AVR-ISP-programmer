@@ -10,6 +10,9 @@
 extern image_t *images[];
 extern uint8_t NUMIMAGES;
 
+SPISettings fuses_spisettings = SPISettings(100000, MSBFIRST, SPI_MODE0);
+SPISettings flash_spisettings = SPISettings(1000000, MSBFIRST, SPI_MODE0);
+
 /*
  * readSignature
  * read the bottom two signature bytes (if possible) and return them
@@ -18,14 +21,17 @@ extern uint8_t NUMIMAGES;
 
 uint16_t readSignature (void)
 {
-  SPI.setClockDivider(CLOCKSPEED_FUSES); 
     
   uint16_t target_type = 0;
   Serial.print("\nReading signature:");
   
+  SPI.beginTransaction(fuses_spisettings); 
+  
   target_type = spi_transaction(0x30, 0x00, 0x01, 0x00);
   target_type <<= 8;
   target_type |= spi_transaction(0x30, 0x00, 0x02, 0x00);
+
+  SPI.endTransaction();
   
   Serial.println(target_type, HEX);
   if (target_type == 0 || target_type == 0xFFFF) {
@@ -71,7 +77,7 @@ image_t *findImage (uint16_t signature)
  */
 boolean programFuses (const byte *fuses)
 {
-  SPI.setClockDivider(CLOCKSPEED_FUSES); 
+  SPI.beginTransaction(fuses_spisettings);
     
   byte f;
   Serial.print("\nSetting fuses");
@@ -105,6 +111,9 @@ boolean programFuses (const byte *fuses)
     Serial.print(spi_transaction(0xAC, 0xA4, 0x00, f), HEX);
   }
   Serial.println();
+
+  SPI.endTransaction();
+  
   return true;			/* */
 }
 
@@ -114,12 +123,15 @@ boolean programFuses (const byte *fuses)
  */
 boolean verifyFuses (const byte *fuses, const byte *fusemask)
 {
-  SPI.setClockDivider(CLOCKSPEED_FUSES); 
   byte f;
+
   Serial.println("Verifying fuses...");
   f = pgm_read_byte(&fuses[FUSE_PROT]);
   if (f) {
+    SPI.beginTransaction(fuses_spisettings);
     uint8_t readfuse = spi_transaction(0x58, 0x00, 0x00, 0x00);  // lock fuse
+    SPI.endTransaction();
+
     readfuse &= pgm_read_byte(&fusemask[FUSE_PROT]);
     Serial.print("\tLock Fuse: "); Serial.print(f, HEX);  Serial.print(" is "); Serial.print(readfuse, HEX);
     if (readfuse != f) 
@@ -127,7 +139,10 @@ boolean verifyFuses (const byte *fuses, const byte *fusemask)
   }
   f = pgm_read_byte(&fuses[FUSE_LOW]);
   if (f) {
+    SPI.beginTransaction(fuses_spisettings);
     uint8_t readfuse = spi_transaction(0x50, 0x00, 0x00, 0x00);  // low fuse
+    SPI.endTransaction();
+        
     Serial.print("\tLow Fuse: 0x");  Serial.print(f, HEX); Serial.print(" is 0x"); Serial.print(readfuse, HEX);
     readfuse &= pgm_read_byte(&fusemask[FUSE_LOW]);
     if (readfuse != f) 
@@ -135,7 +150,10 @@ boolean verifyFuses (const byte *fuses, const byte *fusemask)
   }
   f = pgm_read_byte(&fuses[FUSE_HIGH]);
   if (f) {
+    SPI.beginTransaction(fuses_spisettings);
     uint8_t readfuse = spi_transaction(0x58, 0x08, 0x00, 0x00);  // high fuse
+    SPI.endTransaction();
+        
     readfuse &= pgm_read_byte(&fusemask[FUSE_HIGH]);
     Serial.print("\tHigh Fuse: 0x");  Serial.print(f, HEX); Serial.print(" is 0x");  Serial.print(readfuse, HEX);
     if (readfuse != f) 
@@ -143,7 +161,10 @@ boolean verifyFuses (const byte *fuses, const byte *fusemask)
   }
   f = pgm_read_byte(&fuses[FUSE_EXT]);
   if (f) {
+    SPI.beginTransaction(fuses_spisettings);
     uint8_t readfuse = spi_transaction(0x50, 0x08, 0x00, 0x00);  // ext fuse
+    SPI.endTransaction();
+    
     readfuse &= pgm_read_byte(&fusemask[FUSE_EXT]);
     Serial.print("\tExt Fuse: 0x"); Serial.print(f, HEX); Serial.print(" is 0x"); Serial.print(readfuse, HEX);
     if (readfuse != f) 
@@ -276,9 +297,9 @@ void flashWord (uint8_t hilo, uint16_t addr, uint8_t data) {
 
 // Basically, write the pagebuff (with pagesize bytes in it) into page $pageaddr
 boolean flashPage (byte *pagebuff, uint16_t pageaddr, uint8_t pagesize) {  
-  SPI.setClockDivider(CLOCKSPEED_FLASH); 
 
-
+  SPI.beginTransaction(flash_spisettings);
+  
   Serial.print("Flashing page "); Serial.println(pageaddr, HEX);
   for (uint16_t i=0; i < pagesize/2; i++) {
     
@@ -297,12 +318,15 @@ boolean flashPage (byte *pagebuff, uint16_t pageaddr, uint8_t pagesize) {
 
   uint16_t commitreply = spi_transaction(0x4C, (pageaddr >> 8) & 0xFF, pageaddr & 0xFF, 0);
 
+  SPI.endTransaction();
+
   Serial.print("  Commit Page: 0x");  Serial.print(pageaddr, HEX);
   Serial.print(" -> 0x"); Serial.println(commitreply, HEX);
   if (commitreply != pageaddr) 
     return false;
 
   busyWait();
+  
   
   return true;
 }
@@ -313,8 +337,6 @@ boolean flashPage (byte *pagebuff, uint16_t pageaddr, uint8_t pagesize) {
 boolean verifyImage (byte *hextext)  {
   uint16_t address = 0;
   
-  SPI.setClockDivider(CLOCKSPEED_FLASH); 
-
   uint16_t len;
   byte b, cksum = 0;
 
@@ -363,6 +385,8 @@ boolean verifyImage (byte *hextext)  {
       Serial.write(" ? ");
 #endif
 
+      SPI.beginTransaction(flash_spisettings);
+
       // verify this byte!
       if (lineaddr % 2) {
         // for 'high' bytes:
@@ -380,7 +404,10 @@ boolean verifyImage (byte *hextext)  {
           Serial.println((spi_transaction(0x20, lineaddr >> 9, lineaddr / 2, 0) & 0xFF), HEX);
           return false;
         }
-      } 
+      }
+
+     SPI.endTransaction();
+            
       lineaddr++;  
     }
     
@@ -404,19 +431,21 @@ boolean verifyImage (byte *hextext)  {
 // Send the erase command, then busy wait until the chip is erased
 
 void eraseChip(void) {
-  SPI.setClockDivider(CLOCKSPEED_FUSES); 
-    
+  SPI.beginTransaction(fuses_spisettings);
   spi_transaction(0xAC, 0x80, 0, 0);	// chip erase    
+  SPI.endTransaction();
   busyWait();
 }
 
 // Simply polls the chip until it is not busy any more - for erasing and programming
 void busyWait(void)  {
+  SPI.beginTransaction(fuses_spisettings);
   byte busybit;
   do {
     busybit = spi_transaction(0xF0, 0x0, 0x0, 0x0);
     //Serial.print(busybit, HEX);
   } while (busybit & 0x01);
+  SPI.endTransaction();
 }
 
 
