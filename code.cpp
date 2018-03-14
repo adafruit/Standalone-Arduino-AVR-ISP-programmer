@@ -77,43 +77,52 @@ image_t *findImage (uint16_t signature)
  */
 boolean programFuses (const byte *fuses)
 {
-  SPI.beginTransaction(fuses_spisettings);
     
   byte f;
   Serial.print("\nSetting fuses");
 
+  busyWait();
   f = pgm_read_byte(&fuses[FUSE_PROT]);
   if (f) {
     Serial.print("\n  Set Lock Fuse to: ");
     Serial.print(f, HEX);
     Serial.print(" -> ");
+    SPI.beginTransaction(fuses_spisettings);
     Serial.print(spi_transaction(0xAC, 0xE0, 0x00, f), HEX);
+    SPI.endTransaction();
   }
+  busyWait();
   f = pgm_read_byte(&fuses[FUSE_LOW]);
   if (f) {
     Serial.print("  Set Low Fuse to: ");
     Serial.print(f, HEX);
     Serial.print(" -> ");
+    SPI.beginTransaction(fuses_spisettings);
     Serial.print(spi_transaction(0xAC, 0xA0, 0x00, f), HEX);
+    SPI.endTransaction();
   }
+  busyWait();
   f = pgm_read_byte(&fuses[FUSE_HIGH]);
   if (f) {
     Serial.print("  Set High Fuse to: ");
     Serial.print(f, HEX);
     Serial.print(" -> ");
+    SPI.beginTransaction(fuses_spisettings);
     Serial.print(spi_transaction(0xAC, 0xA8, 0x00, f), HEX);
+    SPI.endTransaction();
   }
+  busyWait();
   f = pgm_read_byte(&fuses[FUSE_EXT]);
   if (f) {
     Serial.print("  Set Ext Fuse to: ");
     Serial.print(f, HEX);
     Serial.print(" -> ");
+    SPI.beginTransaction(fuses_spisettings);
     Serial.print(spi_transaction(0xAC, 0xA4, 0x00, f), HEX);
+    SPI.endTransaction();
   }
   Serial.println();
-
-  SPI.endTransaction();
-  
+    
   return true;			/* */
 }
 
@@ -453,11 +462,22 @@ void busyWait(void)  {
  * Functions specific to ISP programming of an AVR
  */
 uint16_t spi_transaction (uint8_t a, uint8_t b, uint8_t c, uint8_t d) {
-  uint8_t n, m;
+  uint8_t n, m, r;
   SPI.transfer(a); 
   n = SPI.transfer(b);
   //if (n != a) error = -1;
   m = SPI.transfer(c);
-  return 0xFFFFFF & ((n<<16)+(m<<8) + SPI.transfer(d));
+  r = SPI.transfer(d);
+
+  /*
+  Serial.print("SPI write: 0x"); Serial.print(a, HEX); 
+  Serial.print(" 0x"); Serial.print(b, HEX);
+  Serial.print(" 0x"); Serial.print(c, HEX);
+  Serial.print(" 0x"); Serial.println(d, HEX);
+  Serial.print("SPI read: 0x"); Serial.print(n, HEX); 
+  Serial.print(" 0x"); Serial.print(m, HEX);
+  Serial.print(" 0x"); Serial.println(r, HEX);
+  */
+  return 0xFFFFFF & ((n<<16)+(m<<8) + r);
 }
 
