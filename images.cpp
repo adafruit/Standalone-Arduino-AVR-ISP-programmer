@@ -49,7 +49,7 @@ const image_t PROGMEM image_328 = {
 /*
 * Table of defined images
 */
-image_t *images[] = {
+const image_t *images[] = {
   &image_328,
 };
 

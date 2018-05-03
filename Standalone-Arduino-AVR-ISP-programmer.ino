@@ -149,7 +149,7 @@ void loop (void) {
 
 
 
-void error(char *string) { 
+void error(const char *string) {
   Serial.println(string); 
   digitalWrite(LED_ERR, HIGH);  
   while(1) {
