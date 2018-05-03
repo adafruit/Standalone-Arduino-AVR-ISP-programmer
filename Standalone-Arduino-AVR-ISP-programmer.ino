@@ -105,7 +105,7 @@ void loop (void) {
   uint16_t chipsize = pgm_read_word(&targetimage->chipsize);
   Serial.print("Chip size: "); Serial.println(chipsize, DEC);
   
-  while (pageaddr < chipsize) {
+  while (pageaddr < chipsize && hextext) {
      Serial.print("Writing address $"); Serial.println(pageaddr, HEX);
      byte *hextextpos = readImagePage (hextext, pageaddr, pagesize, pageBuffer);
           

@@ -241,7 +241,8 @@ byte * readImagePage (byte *hextext, uint16_t pageaddr, uint8_t pagesize, byte *
     cksum += b;
     //Serial.print("Record type "); Serial.println(b, HEX);
     if (b == 0x1) { 
-     // end record!
+     // end record, return nullptr to indicate we're done
+     hextext = nullptr;
      break;
     } 
 #if VERBOSE
