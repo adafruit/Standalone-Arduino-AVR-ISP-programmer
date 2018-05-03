@@ -195,7 +195,6 @@ boolean verifyFuses (const byte *fuses, const byte *fusemask)
 byte * readImagePage (byte *hextext, uint16_t pageaddr, uint8_t pagesize, byte *page)
 {
   
-  boolean firstline = true;
   uint16_t len;
   uint8_t page_idx = 0;
   byte *beginning = hextext;
@@ -344,8 +343,6 @@ boolean flashPage (byte *pagebuff, uint16_t pageaddr, uint8_t pagesize) {
 // Thankfully this does not have to be done by pages!
 // returns true if the image is the same as the hextext, returns false on any error
 boolean verifyImage (byte *hextext)  {
-  uint16_t address = 0;
-  
   uint16_t len;
   byte b, cksum = 0;
 
