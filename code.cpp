@@ -209,9 +209,15 @@ byte * readImagePage (byte *hextext, uint16_t pageaddr, uint8_t pagesize, byte *
 
   while (1) {
     uint16_t lineaddr;
-    
+
+    // Strip leading whitespace
+    byte c;
+    do {
+      c = pgm_read_byte(hextext++);
+    } while (c == ' ' || c == '\n' || c == '\t');
+
       // read one line!
-    if (pgm_read_byte(hextext++) != ':') {
+    if (c != ':') {
       error("No colon?");
       break;
     }
@@ -349,9 +355,15 @@ boolean verifyImage (byte *hextext)  {
 
   while (1) {
     uint16_t lineaddr;
-    
+
+    // Strip leading whitespace
+    byte c;
+    do {
+      c = pgm_read_byte(hextext++);
+    } while (c == ' ' || c == '\n' || c == '\t');
+
       // read one line!
-    if (pgm_read_byte(hextext++) != ':') {
+    if (c != ':') {
       error("No colon");
       return false;
     }
