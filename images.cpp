@@ -1,14 +1,31 @@
 #include "optiLoader.h"
 
 const image_t PROGMEM image_328 = {
+    // Sketch name, only used for serial printing
     {"optiboot_atmega328.hex"},
+    // Chip name, only used for serial printing
     {"atmega328P"},
-    0x950F,        /* Signature bytes for 328P */
-    {0x3F, 0xFF, 0xDE, 0x05},            // pre program fuses (prot/lock, low, high, ext)
-    {0x0F, 0x0, 0x0, 0x0},            // post program fuses
-    {0x3F, 0xFF, 0xFF, 0x07},           // fuse mask
-    32768,     // size of chip flash in bytes
-    128,   // size in bytes of flash page
+    // Signature bytes for 328P
+    0x950F,
+    // Programming fuses, written before writing to flash. Fuses set to
+    // zero are untouched.
+    {0x3F, 0xFF, 0xDE, 0x05}, // {lock, low, high, extended}
+    // Normal fuses, written after writing to flash (but before
+    // verifying). Fuses set to zero are untouched.
+    {0x0F, 0x0, 0x0, 0x0}, // {lock, low, high, extended}
+    // Fuse verify mask. Any bits set to zero in these values are
+    // ignored while verifying the fuses after writing them. All (and
+    // only) bits that are unused for this atmega chip should be zero
+    // here.
+    {0x3F, 0xFF, 0xFF, 0x07}, // {lock, low, high, extended}
+    // size of chip flash in bytes
+    32768,
+    // size in bytes of flash page
+    128,
+    // The actual image to flash. This can be copy-pasted as-is from a
+    // .hex file. If you do, replace all lines below starting with a
+    // colon, but make sure to keep the start and end markers {R"( and
+    // )"} in place.
     {R"(
 :107E0000112494B714BE892F8D7011F0892FDED004
 :107E100085E08093810082E08093C00088E18093B8
@@ -46,8 +63,9 @@ const image_t PROGMEM image_328 = {
 
 
 /*
-* Table of defined images
-*/
+ * Table of defined images. The first one matching the chip's signature
+ * is used.
+ */
 const image_t *images[] = {
   &image_328,
 };
