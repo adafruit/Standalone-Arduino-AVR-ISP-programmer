@@ -195,7 +195,6 @@ boolean verifyFuses (const byte *fuses, const byte *fusemask)
 byte * readImagePage (byte *hextext, uint16_t pageaddr, uint8_t pagesize, byte *page)
 {
   
-  boolean firstline = true;
   uint16_t len;
   uint8_t page_idx = 0;
   byte *beginning = hextext;
@@ -210,9 +209,15 @@ byte * readImagePage (byte *hextext, uint16_t pageaddr, uint8_t pagesize, byte *
 
   while (1) {
     uint16_t lineaddr;
-    
+
+    // Strip leading whitespace
+    byte c;
+    do {
+      c = pgm_read_byte(hextext++);
+    } while (c == ' ' || c == '\n' || c == '\t');
+
       // read one line!
-    if (pgm_read_byte(hextext++) != ':') {
+    if (c != ':') {
       error("No colon?");
       break;
     }
@@ -242,7 +247,8 @@ byte * readImagePage (byte *hextext, uint16_t pageaddr, uint8_t pagesize, byte *
     cksum += b;
     //Serial.print("Record type "); Serial.println(b, HEX);
     if (b == 0x1) { 
-     // end record!
+     // end record, return nullptr to indicate we're done
+     hextext = nullptr;
      break;
     } 
 #if VERBOSE
@@ -344,16 +350,20 @@ boolean flashPage (byte *pagebuff, uint16_t pageaddr, uint8_t pagesize) {
 // Thankfully this does not have to be done by pages!
 // returns true if the image is the same as the hextext, returns false on any error
 boolean verifyImage (byte *hextext)  {
-  uint16_t address = 0;
-  
   uint16_t len;
   byte b, cksum = 0;
 
   while (1) {
     uint16_t lineaddr;
-    
+
+    // Strip leading whitespace
+    byte c;
+    do {
+      c = pgm_read_byte(hextext++);
+    } while (c == ' ' || c == '\n' || c == '\t');
+
       // read one line!
-    if (pgm_read_byte(hextext++) != ':') {
+    if (c != ':') {
       error("No colon");
       return false;
     }
@@ -478,6 +488,6 @@ uint16_t spi_transaction (uint8_t a, uint8_t b, uint8_t c, uint8_t d) {
   Serial.print(" 0x"); Serial.print(m, HEX);
   Serial.print(" 0x"); Serial.println(r, HEX);
   */
-  return 0xFFFFFF & ((n<<16)+(m<<8) + r);
+  return 0xFFFFFF & (((uint32_t)n<<16)+(m<<8) + r);
 }
 

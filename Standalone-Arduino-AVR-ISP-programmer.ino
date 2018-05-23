@@ -41,6 +41,29 @@ byte pageBuffer[128];		       /* One page of flash */
 #define BUTTON A1
 #define PIEZOPIN A3
 
+// Set to 1 to enable autostart. This automatically starts programming
+// when a chip is inserted. How this detection happens is determined by
+// the DETECT_* constants below. This is disabled by default, since the
+// default settings require adding a pulldown (see below).
+#define AUTOSTART 0
+
+// Pin to use for detecting chip presence. This defaults to the
+// (target) RESET pin, which detects the (internal) reset pullup on the
+// target chip or board. For this to work, there should be a pulldown on
+// the programmer side (which is big enough to not interfere with the
+// target pullup). Alternatively, for self-powered boards, this could be
+// set to an I/O pin that is connected to the targets VCC (still
+// requires a pulldown on the programmer side).
+#define DETECT RESET
+
+// The DETECT pin level that indicates a chip is present.
+#define DETECT_ACTIVE HIGH
+
+// Debounce delay: The DETECT pin must be stable for this long before it
+// is seen as changed. This applies both after removing and after
+// re-inserting the chip.
+#define DETECT_DEBOUNCE_MS 500
+
 void setup () {
   Serial.begin(57600);			/* Initialize serial for status msgs */
   Serial.println("\nAdaBootLoader Bootstrap programmer (originally OptiLoader Bill Westfield (WestfW))");
@@ -66,9 +89,55 @@ void setup () {
   
 }
 
+#if AUTOSTART != 0
+bool detect_chip() {
+  // The most recently read detection state (true is chip present, false is no
+  // chip present). Default is to assume a chip is present, to prevent
+  // autostarting on powerup, only after *inserting* a chip.
+  static bool detected = true;
+  // The most recent detection state that has been stable.
+  static bool debounced = detected;
+  // The timestamp of the most recent change, or 0 when the pin is
+  // stable.
+  static unsigned long last_change = 0;
+
+  // See if the pin changed
+  unsigned long now = millis();
+  bool prev_detected = detected;
+  detected = (digitalRead(DETECT) == DETECT_ACTIVE);
+
+  if (detected != prev_detected)
+    last_change = now;
+
+  if (detected != debounced && (now - last_change) > DETECT_DEBOUNCE_MS) {
+    // If stable for long enough, update the debounced state and clear
+    // the last_change value. Keep the previous value, to detect changes
+    last_change = 0;
+    debounced = detected;
+
+    // Detect when a chip is inserted
+    if (debounced)
+      return true;
+  }
+
+  // No change, or chip removed
+  return false;
+}
+#endif
+
 void loop (void) {
+  #if AUTOSTART != 0
+  Serial.println("\nInsert next chip to autostart or type 'G' or hit BUTTON to force start");
+  #else
   Serial.println("\nType 'G' or hit BUTTON for next chip");
+  #endif
   while (1) {
+    #if AUTOSTART != 0
+    if (detect_chip()) {
+      Serial.println("Chip detected, autostarting..");
+      break;
+    }
+    #endif
     if  ((! digitalRead(BUTTON)) || (Serial.read() == 'G'))
       break;  
   }
@@ -105,7 +174,7 @@ void loop (void) {
   uint16_t chipsize = pgm_read_word(&targetimage->chipsize);
   Serial.print("Chip size: "); Serial.println(chipsize, DEC);
   
-  while (pageaddr < chipsize) {
+  while (pageaddr < chipsize && hextext) {
      Serial.print("Writing address $"); Serial.println(pageaddr, HEX);
      byte *hextextpos = readImagePage (hextext, pageaddr, pagesize, pageBuffer);
           
@@ -149,7 +218,7 @@ void loop (void) {
 
 
 
-void error(char *string) { 
+void error(const char *string) {
   Serial.println(string); 
   digitalWrite(LED_ERR, HIGH);  
   while(1) {

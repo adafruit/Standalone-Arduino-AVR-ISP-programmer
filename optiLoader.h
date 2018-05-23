@@ -59,6 +59,6 @@ boolean flashPage (byte *pagebuff, uint16_t pageaddr, uint8_t pagesize);
 byte hexton (byte h);
 byte * readImagePage (byte *hextext, uint16_t pageaddr, uint8_t pagesize, byte *page);
 boolean verifyFuses (const byte *fuses, const byte *fusemask);
-void error(char *string);
+void error(const char *string);
 
 #endif
