@@ -329,7 +329,7 @@ boolean flashPage (byte *pagebuff, uint16_t pageaddr, uint8_t pagesize) {
   }
 
   // page addr is in bytes, byt we need to convert to words (/2)
-  pageaddr = (pageaddr/2) & 0xFFC0;
+  pageaddr = (pageaddr/2) & (~(((pagesize/2)-1)));
 
   uint16_t commitreply = spi_transaction(0x4C, (pageaddr >> 8) & 0xFF, pageaddr & 0xFF, 0);
 
